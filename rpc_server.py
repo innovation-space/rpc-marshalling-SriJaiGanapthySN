@@ -3,6 +3,7 @@ RPC Server Implementation
 
 This module implements a TCP-based RPC server that handles remote procedure calls.
 It supports the calculate_grade_average method which takes a StudentProfile object.
+Uses the marshalling layer for type validation and data conversion.
 """
 
 import json
@@ -10,6 +11,7 @@ import socket
 from typing import Dict, Any
 
 from student_profile import StudentProfile
+from marshalling import validate_student_profile, unmarshal
 
 
 class RpcServer:
@@ -17,6 +19,7 @@ class RpcServer:
     RPC Server that listens for incoming requests and executes registered methods.
     
     The server uses JSON for data serialization and TCP sockets for communication.
+    It validates incoming data types using the marshalling layer.
     """
     
     def __init__(self, host: str = "127.0.0.1", port: int = 4000):
@@ -44,9 +47,16 @@ class RpcServer:
             
         Returns:
             The average of all grades as a float
+            
+        Raises:
+            TypeError: If the incoming data has incorrect types
         """
+        # Validate types using the marshalling layer
+        # This will raise TypeError if types are incorrect
+        validate_student_profile(profile_dict)
+        
         # Unmarshal the dictionary to StudentProfile object
-        profile = StudentProfile.from_dict(profile_dict)
+        profile = unmarshal(profile_dict, StudentProfile)
         print(f"[Server] Received profile: {profile}")
         
         if not profile.grades:
@@ -81,6 +91,14 @@ class RpcServer:
         try:
             result = self.handlers[method](params)
             return {"result": result}
+        except TypeError as e:
+            # Type validation error from marshalling layer
+            print(f"[Server] Type validation failed: {e}")
+            return {"error": f"TypeError: {str(e)}"}
+        except KeyError as e:
+            # Missing field error from marshalling layer
+            print(f"[Server] Missing field: {e}")
+            return {"error": f"KeyError: {str(e)}"}
         except Exception as e:
             return {"error": str(e)}
 

@@ -2,7 +2,7 @@
 RPC Client Implementation
 
 This module implements a TCP-based RPC client that can invoke remote procedures.
-It handles object marshalling (serialization) before sending requests.
+It uses the marshalling layer for object serialization before sending requests.
 """
 
 import json
@@ -10,13 +10,14 @@ import socket
 from typing import Dict, Any
 
 from student_profile import StudentProfile
+from marshalling import marshal
 
 
 class RpcClient:
     """
     RPC Client that connects to the server and invokes remote methods.
     
-    The client serializes method calls to JSON and sends them over TCP.
+    The client uses the marshalling layer to serialize objects before sending.
     """
     
     def __init__(self, host: str = "127.0.0.1", port: int = 4000):
@@ -87,8 +88,8 @@ class RpcClient:
         print(f"\n[Client] Calling remote method: calculate_grade_average")
         print(f"[Client] StudentProfile object: {profile}")
         
-        # Marshal the object to dictionary
-        profile_dict = profile.to_dict()
+        # Marshal the object to dictionary using marshalling layer
+        profile_dict = marshal(profile)
         print(f"[Client] Marshalled to dict: {profile_dict}")
         
         # Make the RPC call

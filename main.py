@@ -1,9 +1,19 @@
+"""
+Main Entry Point for RPC Framework Demo
 
+This module provides a unified entry point to run either the server or client.
+
+Usage:
+    python main.py server   - Start the RPC server
+    python main.py client   - Run the RPC client demo
+    python main.py test     - Run type validation tests
+"""
 
 import sys
 from rpc_client import RpcClient
 from rpc_server import RpcServer
 from student_profile import StudentProfile
+from marshalling import validate_types, validate_student_profile, STUDENT_PROFILE_SCHEMA
 
 
 def run_server():
@@ -21,7 +31,7 @@ def run_client():
     
     client = RpcClient()
     
-    # Create a StudentProfile object
+    # Create a StudentProfile object with correct types
     profile = StudentProfile(
         name="Ganapathy",
         id=90,
@@ -36,6 +46,75 @@ def run_client():
     print("=" * 60)
 
 
+def run_validation_tests():
+    """Run tests to demonstrate validate_types() functionality."""
+    print("=" * 60)
+    print("Testing validate_types() Function")
+    print("=" * 60)
+    
+    # Test 1: Valid data
+    print("\n[Test 1] Valid data - should pass")
+    print("-" * 40)
+    valid_data = {"name": "John", "id": 123, "grades": [90, 85, 88]}
+    try:
+        validate_student_profile(valid_data)
+        print("Result: PASSED - Data is valid\n")
+    except (TypeError, KeyError) as e:
+        print(f"Result: FAILED - {e}\n")
+    
+    # Test 2: String instead of int for 'id'
+    print("[Test 2] String instead of int for 'id' - should raise TypeError")
+    print("-" * 40)
+    invalid_id = {"name": "John", "id": "123", "grades": [90, 85]}
+    try:
+        validate_student_profile(invalid_id)
+        print("Result: FAILED - Should have raised TypeError\n")
+    except TypeError as e:
+        print(f"Result: PASSED - Caught TypeError: {e}\n")
+    except KeyError as e:
+        print(f"Result: FAILED - Wrong exception: {e}\n")
+    
+    # Test 3: Int instead of string for 'name'
+    print("[Test 3] Int instead of string for 'name' - should raise TypeError")
+    print("-" * 40)
+    invalid_name = {"name": 12345, "id": 123, "grades": [90, 85]}
+    try:
+        validate_student_profile(invalid_name)
+        print("Result: FAILED - Should have raised TypeError\n")
+    except TypeError as e:
+        print(f"Result: PASSED - Caught TypeError: {e}\n")
+    except KeyError as e:
+        print(f"Result: FAILED - Wrong exception: {e}\n")
+    
+    # Test 4: String in grades list instead of int
+    print("[Test 4] String in grades list - should raise TypeError")
+    print("-" * 40)
+    invalid_grades = {"name": "John", "id": 123, "grades": [90, "85", 88]}
+    try:
+        validate_student_profile(invalid_grades)
+        print("Result: FAILED - Should have raised TypeError\n")
+    except TypeError as e:
+        print(f"Result: PASSED - Caught TypeError: {e}\n")
+    except KeyError as e:
+        print(f"Result: FAILED - Wrong exception: {e}\n")
+    
+    # Test 5: Missing required field
+    print("[Test 5] Missing 'grades' field - should raise KeyError")
+    print("-" * 40)
+    missing_field = {"name": "John", "id": 123}
+    try:
+        validate_student_profile(missing_field)
+        print("Result: FAILED - Should have raised KeyError\n")
+    except KeyError as e:
+        print(f"Result: PASSED - Caught KeyError: {e}\n")
+    except TypeError as e:
+        print(f"Result: FAILED - Wrong exception: {e}\n")
+    
+    print("=" * 60)
+    print("All validation tests completed!")
+    print("=" * 60)
+
+
 def print_usage():
     """Print usage instructions."""
     print("RPC Framework - Lab DA-1")
@@ -43,6 +122,7 @@ def print_usage():
     print("Usage:")
     print("  python main.py server   - Start the RPC server")
     print("  python main.py client   - Run the RPC client")
+    print("  python main.py test     - Run type validation tests")
     print()
     print("Or run directly:")
     print("  python rpc_server.py    - Start the server")
@@ -55,6 +135,8 @@ if __name__ == "__main__":
             run_server()
         elif sys.argv[1] == "client":
             run_client()
+        elif sys.argv[1] == "test":
+            run_validation_tests()
         else:
             print(f"Unknown command: {sys.argv[1]}")
             print_usage()

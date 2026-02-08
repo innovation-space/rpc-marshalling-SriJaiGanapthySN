@@ -1,9 +1,8 @@
 """
-Student Profile Model with Marshalling/Unmarshalling Support
+Student Profile Model
 
 This module defines the StudentProfile class used for RPC communication.
-Marshalling converts the object to a dictionary (for JSON serialization).
-Unmarshalling converts a dictionary back to an object.
+The marshalling/unmarshalling logic is handled by the marshalling layer.
 """
 
 from dataclasses import dataclass
@@ -26,8 +25,7 @@ class StudentProfile:
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Marshal the StudentProfile object to a dictionary.
-        This is used for JSON serialization before sending over the network.
+        Convert StudentProfile object to a dictionary for marshalling.
         
         Returns:
             Dictionary representation of the StudentProfile
@@ -41,8 +39,7 @@ class StudentProfile:
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> "StudentProfile":
         """
-        Unmarshal a dictionary to create a StudentProfile object.
-        This is used after receiving JSON data from the network.
+        Create a StudentProfile object from a dictionary (unmarshalling).
         
         Args:
             data: Dictionary containing name, id, and grades

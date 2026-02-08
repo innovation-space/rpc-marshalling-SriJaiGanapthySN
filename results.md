@@ -1,35 +1,63 @@
 # Lab DA-1: RPC Framework with Object Marshalling - Results
 
-## Submitted by
-
-**Name** Sri Jai Ganapathy S N
-
-**Regno** 22MIC0012
-
 ## Objective
-
-Implement a Remote Procedure Call (RPC) framework in Python that supports remote invocation of methods with complex object parameters. Specifically, implement:
-
-```python
-float calculate_grade_average(StudentProfile profile)
-```
+Implement a Remote Procedure Call (RPC) framework in Python that supports remote invocation of methods with complex object parameters. Implement a `validate_types()` function within the marshalling layer that checks incoming data on the server side and raises a `TypeError` if incorrect types are detected.
 
 ## StudentProfile Object Structure
 
-| Field  | Type         | Description            |
-| ------ | ------------ | ---------------------- |
-| name   | string       | Student's name         |
-| id     | int          | Student's unique ID    |
-| grades | list of ints | List of student grades |
+| Field  | Type           | Description              |
+|--------|----------------|--------------------------|
+| name   | string         | Student's name           |
+| id     | int            | Student's unique ID      |
+| grades | list of ints   | List of student grades   |
+
+---
 
 ## Implementation Details
 
-### 1. Marshalling/Unmarshalling (student_profile.py)
+### 1. Marshalling Layer (marshalling.py)
 
-The `StudentProfile` class uses Python's `dataclass` decorator and provides:
+A **dedicated marshalling layer** that handles:
+- Type validation using `validate_types()`
+- Object serialization (marshalling)
+- Object deserialization (unmarshalling)
 
-- `to_dict()`: Serializes the object to a dictionary (marshalling)
-- `from_dict()`: Deserializes a dictionary back to an object (unmarshalling)
+#### validate_types() Function
+
+```python
+def validate_types(data: Dict[str, Any], schema: Dict[str, type]) -> None:
+    """
+    Validate that incoming data matches the expected types.
+    
+    Raises:
+        TypeError: If a field has an incorrect type
+        KeyError: If a required field is missing
+    """
+    for field_name, expected_type in schema.items():
+        if field_name not in data:
+            raise KeyError(f"Missing required field: '{field_name}'")
+        
+        value = data[field_name]
+        
+        if not isinstance(value, expected_type):
+            raise TypeError(
+                f"Type error for field '{field_name}': "
+                f"expected {expected_type.__name__}, got {type(value).__name__} "
+                f"(value: {repr(value)})"
+            )
+```
+
+#### Schema Definition
+
+```python
+STUDENT_PROFILE_SCHEMA = {
+    "name": str,
+    "id": int,
+    "grades": list
+}
+```
+
+### 2. StudentProfile Class (student_profile.py)
 
 ```python
 @dataclass
@@ -46,80 +74,107 @@ class StudentProfile:
         return StudentProfile(name=data["name"], id=data["id"], grades=data["grades"])
 ```
 
-### 2. RPC Protocol
+### 3. RPC Server (rpc_server.py)
 
-The framework uses a JSON-based RPC protocol over TCP sockets:
+The server validates incoming data using the marshalling layer before processing:
 
-**Request Format:**
-
-```json
-{
-  "method": "calculate_grade_average",
-  "params": {
-    "name": "StudentName",
-    "id": 123,
-    "grades": [85, 90, 78, 92]
-  }
-}
+```python
+def calculate_grade_average(self, profile_dict: Dict[str, Any]) -> float:
+    # Validate types using the marshalling layer
+    validate_student_profile(profile_dict)  # Raises TypeError if invalid
+    
+    # Unmarshal the dictionary to StudentProfile object
+    profile = unmarshal(profile_dict, StudentProfile)
+    
+    # Calculate average
+    return sum(profile.grades) / len(profile.grades)
 ```
 
-**Response Format:**
+### 4. RPC Client (rpc_client.py)
 
-```json
-{
-  "result": 86.25
-}
+The client marshals objects before sending:
+
+```python
+def calculate_grade_average(self, profile: StudentProfile) -> float:
+    # Marshal the object using marshalling layer
+    profile_dict = marshal(profile)
+    
+    # Make the RPC call
+    return self.call("calculate_grade_average", profile_dict)
 ```
 
-**Error Response:**
+---
 
-```json
-{
-  "error": "Error message"
-}
+## Type Validation Test Results
+
+### Test Execution
+```bash
+python main.py test
 ```
 
-### 3. Server Implementation (rpc_server.py)
+### Test Output
 
-- Listens on `127.0.0.1:4000`
-- Handles incoming RPC requests
-- Deserializes `StudentProfile` from JSON (unmarshalling)
-- Computes grade average
-- Returns result as JSON
+```
+============================================================
+Testing validate_types() Function
+============================================================
 
-### 4. Client Implementation (rpc_client.py)
+[Test 1] Valid data - should pass
+----------------------------------------
+[Marshalling] Validating StudentProfile data: {'name': 'John', 'id': 123, 'grades': [90, 85, 88]}
+[Marshalling] Validation successful - all types are correct
+Result: PASSED - Data is valid
 
-- Connects to server at `127.0.0.1:4000`
-- Serializes `StudentProfile` to JSON (marshalling)
-- Sends RPC request
-- Receives and parses response
+[Test 2] String instead of int for 'id' - should raise TypeError
+----------------------------------------
+[Marshalling] Validating StudentProfile data: {'name': 'John', 'id': '123', 'grades': [90, 85]}
+Result: PASSED - Caught TypeError: Type error for field 'id': expected int, got str (value: '123')
 
-## Test Execution
+[Test 3] Int instead of string for 'name' - should raise TypeError
+----------------------------------------
+[Marshalling] Validating StudentProfile data: {'name': 12345, 'id': 123, 'grades': [90, 85]}
+Result: PASSED - Caught TypeError: Type error for field 'name': expected str, got int (value: 12345)
+
+[Test 4] String in grades list - should raise TypeError
+----------------------------------------
+[Marshalling] Validating StudentProfile data: {'name': 'John', 'id': 123, 'grades': [90, '85', 88]}
+Result: PASSED - Caught TypeError: Type error for field 'grades[1]': expected int, got str (value: '85')
+
+[Test 5] Missing 'grades' field - should raise KeyError
+----------------------------------------
+[Marshalling] Validating StudentProfile data: {'name': 'John', 'id': 123}
+Result: PASSED - Caught KeyError: 'Missing required field: 'grades''
+
+============================================================
+All validation tests completed!
+============================================================
+```
+
+---
+
+## RPC Test Results
 
 ### Step 1: Start the Server
-
 ```bash
 python rpc_server.py
 ```
-
 **Output:**
-
 ```
 [Server] RPC Server started on 127.0.0.1:4000
 [Server] Waiting for client connections...
 ```
 
 ### Step 2: Run the Client
-
 ```bash
 python rpc_client.py
 ```
 
-### Server Output (after client connects):
-
+### Server Output:
 ```
 [Server] Client connected from ('127.0.0.1', 52345)
 [Server] Received request for method: calculate_grade_average
+[Marshalling] Validating StudentProfile data: {'name': 'Ganapathy', 'id': 90, 'grades': [23, 45, 78]}
+[Marshalling] Validation successful - all types are correct
 [Server] Received profile: StudentProfile(name='Ganapathy', id=90, grades=[23, 45, 78])
 [Server] Calculating: sum([23, 45, 78]) / 3 = 146 / 3 = 48.666666666666664
 [Server] Sending response: {'result': 48.666666666666664}
@@ -127,7 +182,6 @@ python rpc_client.py
 ```
 
 ### Client Output:
-
 ```
 ============================================================
 RPC Client - Remote Grade Average Calculation
@@ -144,111 +198,145 @@ RPC Client - Remote Grade Average Calculation
 ============================================================
 ```
 
-### Test Case Details
-
-| Test Input                                    | Expected Output               |
-| --------------------------------------------- | ----------------------------- |
-| StudentProfile("Ganapathy", 90, [23, 45, 78]) | 48.67 (average of 23, 45, 78) |
-
-**Calculation Verification:**
-
-- Grades: [23, 45, 78]
-- Sum: 23 + 45 + 78 = 146
-- Count: 3
-- Average: 146 / 3 = 48.666... ≈ 48.67 ✓
+---
 
 ## Architecture Diagram
 
 ```
-┌─────────────────┐         ┌─────────────────┐
-│                 │         │                 │
-│   RPC Client    │◄───────►│   RPC Server    │
-│                 │  TCP    │                 │
-│  - StudentProfile        │  - calculate_   │
-│    .to_dict()   │  JSON   │    grade_avg() │
-│  - call()       │         │  - StudentProfile
-│                 │         │    .from_dict() │
-└─────────────────┘         └─────────────────┘
-         │                           │
-         ▼                           ▼
-┌─────────────────┐         ┌─────────────────┐
-│   Marshalling   │         │ Unmarshalling   │
-│   (Serialize)   │         │ (Deserialize)   │
-│                 │         │                 │
-│ StudentProfile  │         │ Dict → Student  │
-│   → Dict → JSON │         │   Profile       │
-└─────────────────┘         └─────────────────┘
+┌─────────────────┐                              ┌─────────────────┐
+│   RPC Client    │                              │   RPC Server    │
+│                 │         TCP Socket           │                 │
+│  rpc_client.py  │◄────────────────────────────►│  rpc_server.py  │
+└────────┬────────┘           JSON               └────────┬────────┘
+         │                                                │
+         ▼                                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     MARSHALLING LAYER                           │
+│                      marshalling.py                             │
+│                                                                 │
+│  ┌─────────────────┐              ┌─────────────────────────┐  │
+│  │    marshal()    │              │   validate_types()      │  │
+│  │                 │              │                         │  │
+│  │ StudentProfile  │              │ Checks: name=str        │  │
+│  │    → Dict       │              │         id=int          │  │
+│  │    → JSON       │              │         grades=list[int]│  │
+│  └─────────────────┘              └─────────────────────────┘  │
+│                                                                 │
+│  ┌─────────────────┐              ┌─────────────────────────┐  │
+│  │   unmarshal()   │              │ validate_student_       │  │
+│  │                 │              │       profile()         │  │
+│  │ JSON → Dict     │              │                         │  │
+│  │    → StudentProfile           │ Raises TypeError if     │  │
+│  └─────────────────┘              │ types don't match       │  │
+│                                   └─────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+         │                                                │
+         ▼                                                ▼
+┌─────────────────┐                              ┌─────────────────┐
+│ StudentProfile  │                              │ StudentProfile  │
+│   Object        │                              │   Object        │
+│                 │                              │                 │
+│ student_profile.py                             │ student_profile.py
+└─────────────────┘                              └─────────────────┘
 ```
 
-## RPC Communication Flow
+---
+
+## RPC Communication Flow with Type Validation
 
 ```
-Step 1: Client creates StudentProfile object
-        StudentProfile("Ganapathy", 90, [23, 45, 78])
-                            │
-                            ▼
-Step 2: Client marshals object to dictionary
-        {"name": "Ganapathy", "id": 90, "grades": [23, 45, 78]}
-                            │
-                            ▼
-Step 3: Client serializes to JSON and sends over TCP
-        '{"method": "calculate_grade_average", "params": {...}}'
-                            │
-                            ▼
-Step 4: Server receives and parses JSON
-        {"method": "calculate_grade_average", "params": {...}}
-                            │
-                            ▼
-Step 5: Server unmarshals to StudentProfile object
-        StudentProfile(name="Ganapathy", id=90, grades=[23,45,78])
-                            │
-                            ▼
-Step 6: Server executes calculate_grade_average()
-        sum([23, 45, 78]) / 3 = 48.67
-                            │
-                            ▼
-Step 7: Server sends JSON response
-        {"result": 48.666666666666664}
-                            │
-                            ▼
-Step 8: Client receives and displays result
-        Grade Average = 48.67
+CLIENT                         NETWORK                         SERVER
+  │                               │                               │
+  │ 1. Create StudentProfile      │                               │
+  │    object with data           │                               │
+  │                               │                               │
+  │ 2. marshal(profile)           │                               │
+  │    → Convert to dict          │                               │
+  │                               │                               │
+  │ 3. serialize_to_json()        │                               │
+  │    → Convert to JSON          │                               │
+  │                               │                               │
+  │ ─────────────────────────────>│                               │
+  │          TCP Send             │                               │
+  │                               │──────────────────────────────>│
+  │                               │         TCP Receive           │
+  │                               │                               │
+  │                               │     4. deserialize_from_json()│
+  │                               │        → Parse JSON to dict   │
+  │                               │                               │
+  │                               │     5. validate_types()       │
+  │                               │        → Check name is str    │
+  │                               │        → Check id is int      │
+  │                               │        → Check grades is list │
+  │                               │        → Check each grade int │
+  │                               │                               │
+  │                               │        IF INVALID:            │
+  │                               │        → Raise TypeError      │
+  │                               │        → Return error response│
+  │                               │                               │
+  │                               │     6. unmarshal()            │
+  │                               │        → Create StudentProfile│
+  │                               │                               │
+  │                               │     7. calculate_grade_average│
+  │                               │        → sum(grades)/len      │
+  │                               │                               │
+  │                               │<──────────────────────────────│
+  │<──────────────────────────────│         TCP Send Result       │
+  │        TCP Receive            │                               │
+  │                               │                               │
+  │ 8. Parse response             │                               │
+  │    → Display result           │                               │
+  │                               │                               │
 ```
 
-## Key Features
-
-1. **Object Marshalling**: Complex objects serialized to JSON for network transport
-2. **Socket Communication**: TCP sockets for reliable client-server communication
-3. **Error Handling**: Graceful error handling with error messages in responses
-4. **Extensible Design**: Easy to add new RPC methods to the handler dictionary
-5. **Verbose Logging**: Detailed output showing each step of the RPC process
+---
 
 ## Files Structure
 
 ```
 rpc-marshalling-SriJaiGanapthySN/
-├── student_profile.py  # StudentProfile class with marshalling
-├── rpc_server.py       # RPC Server implementation
-├── rpc_client.py       # RPC Client implementation
-├── main.py             # Entry point for server/client
+├── student_profile.py  # StudentProfile data class
+├── marshalling.py      # Marshalling layer with validate_types()
+├── rpc_server.py       # RPC Server with type validation
+├── rpc_client.py       # RPC Client with marshalling
+├── main.py             # Entry point (server/client/test)
 ├── results.md          # This results document
 └── README.md           # Project documentation
 ```
 
+---
+
+## Key Features
+
+1. **Separate Marshalling Layer**: Dedicated module for all marshalling operations
+2. **Type Validation**: `validate_types()` checks data types on server side
+3. **Error Handling**: Raises `TypeError` with detailed error messages
+4. **Object Marshalling**: Complex objects serialized to JSON for network transport
+5. **Socket Communication**: TCP sockets for reliable client-server communication
+6. **Extensible Design**: Easy to add new RPC methods and data types
+
+---
+
 ## Conclusion
 
-The RPC framework successfully demonstrates:
+The RPC framework successfully implements:
 
-- Remote procedure invocation over TCP sockets
-- Object marshalling/unmarshalling using JSON serialization
-- Client-server architecture for distributed computing
-- Handling complex data types (custom objects with nested lists)
+1. **Remote procedure invocation** over TCP sockets
+2. **Separate marshalling layer** (`marshalling.py`) for serialization/deserialization
+3. **`validate_types()` function** that:
+   - Checks incoming data against expected schema
+   - Raises `TypeError` if string sent where int expected
+   - Validates nested types (list elements)
+   - Provides detailed error messages
 
-The `calculate_grade_average` function correctly computes and returns the average of a student's grades when invoked remotely with a `StudentProfile` object.
+The `calculate_grade_average` function correctly validates input types and computes the average of a student's grades when invoked remotely.
 
-### Key Learnings
+### Test Results Summary
 
-1. **Marshalling** converts complex objects to a format suitable for network transmission (dictionary → JSON)
-2. **Unmarshalling** reconstructs objects from received data (JSON → dictionary → object)
-3. **RPC abstraction** allows calling remote methods as if they were local functions
-4. **TCP sockets** provide reliable, ordered delivery of messages between client and server
+| Test Case | Input | Expected | Result |
+|-----------|-------|----------|--------|
+| Valid data | `id=123` (int) | Pass | ✓ PASSED |
+| String for int | `id="123"` (str) | TypeError | ✓ PASSED |
+| Int for string | `name=12345` (int) | TypeError | ✓ PASSED |
+| String in list | `grades=[90,"85"]` | TypeError | ✓ PASSED |
+| Missing field | No grades field | KeyError | ✓ PASSED |
