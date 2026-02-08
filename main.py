@@ -1,14 +1,3 @@
-"""
-Main Entry Point for RPC Framework Demo
-
-This module provides a unified entry point to run either the server or client.
-
-Usage:
-    python main.py server   - Start the RPC server
-    python main.py client   - Run the RPC client demo
-    python main.py test     - Run type validation tests
-"""
-
 import sys
 from rpc_client import RpcClient
 from rpc_server import RpcServer
@@ -17,42 +6,36 @@ from marshalling import validate_types, validate_student_profile, STUDENT_PROFIL
 
 
 def run_server():
-    """Start the RPC server."""
     print("Starting RPC Server...")
     server = RpcServer()
     server.serve_forever()
 
 
 def run_client():
-    """Run the RPC client demo with a sample StudentProfile."""
     print("=" * 60)
     print("RPC Client Demo - Remote Grade Average Calculation")
     print("=" * 60)
-    
+
     client = RpcClient()
-    
-    # Create a StudentProfile object with correct types
+
     profile = StudentProfile(
         name="Ganapathy",
         id=90,
         grades=[23, 45, 78]
     )
-    
-    # Call the remote method
+
     average = client.calculate_grade_average(profile)
-    
+
     print("=" * 60)
     print(f"Final Result: Grade Average = {average:.2f}")
     print("=" * 60)
 
 
 def run_validation_tests():
-    """Run tests to demonstrate validate_types() functionality."""
     print("=" * 60)
     print("Testing validate_types() Function")
     print("=" * 60)
-    
-    # Test 1: Valid data
+
     print("\n[Test 1] Valid data - should pass")
     print("-" * 40)
     valid_data = {"name": "John", "id": 123, "grades": [90, 85, 88]}
@@ -61,8 +44,7 @@ def run_validation_tests():
         print("Result: PASSED - Data is valid\n")
     except (TypeError, KeyError) as e:
         print(f"Result: FAILED - {e}\n")
-    
-    # Test 2: String instead of int for 'id'
+
     print("[Test 2] String instead of int for 'id' - should raise TypeError")
     print("-" * 40)
     invalid_id = {"name": "John", "id": "123", "grades": [90, 85]}
@@ -73,8 +55,7 @@ def run_validation_tests():
         print(f"Result: PASSED - Caught TypeError: {e}\n")
     except KeyError as e:
         print(f"Result: FAILED - Wrong exception: {e}\n")
-    
-    # Test 3: Int instead of string for 'name'
+
     print("[Test 3] Int instead of string for 'name' - should raise TypeError")
     print("-" * 40)
     invalid_name = {"name": 12345, "id": 123, "grades": [90, 85]}
@@ -85,8 +66,7 @@ def run_validation_tests():
         print(f"Result: PASSED - Caught TypeError: {e}\n")
     except KeyError as e:
         print(f"Result: FAILED - Wrong exception: {e}\n")
-    
-    # Test 4: String in grades list instead of int
+
     print("[Test 4] String in grades list - should raise TypeError")
     print("-" * 40)
     invalid_grades = {"name": "John", "id": 123, "grades": [90, "85", 88]}
@@ -97,8 +77,7 @@ def run_validation_tests():
         print(f"Result: PASSED - Caught TypeError: {e}\n")
     except KeyError as e:
         print(f"Result: FAILED - Wrong exception: {e}\n")
-    
-    # Test 5: Missing required field
+
     print("[Test 5] Missing 'grades' field - should raise KeyError")
     print("-" * 40)
     missing_field = {"name": "John", "id": 123}
@@ -109,14 +88,13 @@ def run_validation_tests():
         print(f"Result: PASSED - Caught KeyError: {e}\n")
     except TypeError as e:
         print(f"Result: FAILED - Wrong exception: {e}\n")
-    
+
     print("=" * 60)
     print("All validation tests completed!")
     print("=" * 60)
 
 
 def print_usage():
-    """Print usage instructions."""
     print("RPC Framework - Lab DA-1")
     print("-" * 40)
     print("Usage:")
